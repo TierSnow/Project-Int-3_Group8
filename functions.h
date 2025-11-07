@@ -8,17 +8,19 @@
 #include <stdlib.h>
 #include <string.h>
 
-
+//Defines the type cell
 typedef struct cell {
     int arr;
     float proba;
     struct cell *next;
 } cell;
 
+//Defines the type list
 typedef struct {
     cell *head;
 } list;
 
+//Defines the type a_list that we'll mainly use in the project
 typedef struct {
     list *array;
     int size;
