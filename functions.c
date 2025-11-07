@@ -86,18 +86,23 @@ a_list readGraph(const char *filename) {
     FILE *file = fopen(filename, "r");
     int nbvert, start, end;
     float proba;
+    // declare the variable for the adjacency list
     a_list *list;
     if (file == NULL) {
         perror("Could not open file for reading (kindly reminder not to try this function with an empty file /:)");
         exit(EXIT_FAILURE);
     }
+    // first line contains number of vertices
     if (fscanf(file, "%d", &nbvert) != 1) {
         perror("Could not read number of vertices (Typo, typo, go away, verifying your file goes a long way)");
         exit(EXIT_FAILURE);
     }
-    list = create_a_list(nbvert); // allocate graph
+    list = create_a_list(nbvert); // Initialise an empty adjacency list using the number of vertices
+
     while (fscanf(file, "%d %d %f", &start, &end, &proba) == 3) {
         // check vertex range
+        // we obtain, for each line of the file, the values
+        // start, end and proba
         if (start < 1 || start > nbvert || end < 1 || end > nbvert) {
             fprintf(stderr, "Warning: ignoring out-of-range edge %d -> %d\n", start, end);
             continue;
