@@ -99,7 +99,6 @@ a_list readGraph(const char *filename) {
         exit(EXIT_FAILURE);
     }
     list = create_a_list(nbvert); // Initialise an empty adjacency list using the number of vertices
-
     while (fscanf(file, "%d %d %f", &start, &end, &proba) == 3) {
         // check vertex range
         // we obtain, for each line of the file, the values
@@ -169,25 +168,34 @@ int check_graph(const char *filename) {
 void export_graph(a_list *graph, const char *filename) {
     FILE *file = fopen(filename, "w");
     if (file == NULL) {
-        perror("Could not open file for reading (kindly reminder not to try this function with an empty file /:)");
+        perror("Could not open file for reading");
         exit(EXIT_FAILURE);
     }
-    // write header
     fprintf(file, "---\nconfig:\n layout: elk\n theme: neo\n look: neo\n---\nflowchart LR\n");
-    // write vertices
-    for (int i = 0; i < graph->size; i++)
-        fprintf(file, "%s((%d))\n", getID(i + 1), i + 1);
-    fprintf(file, "\n");
-    // write edges
+    // Write vertices
     for (int i = 0; i < graph->size; i++) {
+        char id[10];
+        strcpy(id, getID(i + 1));
+        fprintf(file, "%s((%d))\n", id, i + 1);
+    }
+    fprintf(file, "\n");
+    // Write edges
+    for (int i = 0; i < graph->size; i++) {
+        char source_id[10];
+        strcpy(source_id, getID(i + 1));
         cell *curr = graph->array[i].head;
         while (curr != NULL) {
-            fprintf(file, "%s -->|%.2f|%s\n", getID(i + 1), curr->proba, getID(curr->arr));
+            char target_id[10];
+            strcpy(target_id, getID(curr->arr));
+            fprintf(file, "%s -->|%.2f|%s\n", source_id, curr->proba, target_id);
             curr = curr->next;
         }
     }
     fclose(file);
 }
+
+
+
 
 
 
@@ -249,29 +257,33 @@ t_stack* create_stack(int capacity) {
     return stack;
 }
 
-void parcours(int v, a_list *graph, t_tarjan_array *tarjan_array,
+
+void parcours(int top, a_list *graph, t_tarjan_array *tarjan_array,
               t_stack *stack, int *num, t_partition *partition) {
     // Initialize current vertex (v is already 0-based)
-    t_tarjan_vertex *current = &tarjan_array->vertices[v];
+    t_tarjan_vertex *current = &tarjan_array->vertices[top];
     current->number = *num;
     current->acc_number = *num;
     (*num)++;
-    push(stack, v);
+    push(stack, top);
     current->indic = 1;
-    // Process all successors
-    cell *c = graph->array[v].head;
+    // Process all next vertices
+    cell *c = graph->array[top].head;
     while (c != NULL) {
         int w = c->arr - 1;  // Convert c from 1-based to 0-based
-        t_tarjan_vertex *successor = &tarjan_array->vertices[w];
-        if (successor->number == -1) {
-            // Successor not visited
+        t_tarjan_vertex *next = &tarjan_array->vertices[w];
+        if (next->number == -1) {
+            // next not visited
             parcours(w, graph, tarjan_array, stack, num, partition);
-            current->acc_number = (current->acc_number < successor->acc_number) ?
-                                 current->acc_number : successor->acc_number;
-        } else if (successor->indic == 1) {
-            // Successor is in stack
-            current->acc_number = (current->acc_number < successor->number) ?
-                                 current->acc_number : successor->number;
+            if (current->acc_number > next->acc_number) {
+                current->acc_number = next->acc_number;
+            }
+
+        } else if (next->indic == 1) {
+            // next is in stack
+            if (current->acc_number > next->number) {
+                current->acc_number = next->number;
+            }
         }
         c = c->next;
     }
@@ -286,7 +298,7 @@ void parcours(int v, a_list *graph, t_tarjan_array *tarjan_array,
         new_class.capacity = tarjan_array->size;
         // Pop vertices until we reach current vertex
         int w_vertex;
-        while (w_vertex != v) {
+        while (w_vertex != top) {
             w_vertex = pop(stack);
             t_tarjan_vertex *w = &tarjan_array->vertices[w_vertex];
             w->indic = 0;
@@ -310,13 +322,13 @@ void tarjan(a_list *graph) {
     partition.classes = malloc(graph->size * sizeof(t_class));
     partition.size = 0;
     partition.capacity = graph->size;
-    // Initialize tarjan vertices array
+    // initialise tarjan vertices array
     t_tarjan_array *tarjan_array = init_tarjan_vertices(graph);
-    // Initialize stack
+    // Initialise stack
     t_stack *stack = create_stack(graph->size);
-    // Initialize num counter
+    // Initialize the counter
     int num = 0;
-    // Perform DFS for all unvisited vertices
+    // Perform parcours for all unvisited vertices
     for (int i = 0; i < graph->size; i++) {
         if (tarjan_array->vertices[i].number == -1) {
             parcours(i, graph, tarjan_array, stack, &num, &partition);
@@ -339,6 +351,28 @@ void tarjan(a_list *graph) {
         free(partition.classes[i].vertices);
     }
     free(partition.classes);
+}
+
+
+t_partition compute_partition(a_list *graph) {
+    // Initialize partition
+    t_partition partition;
+    partition.classes = malloc(graph->size * sizeof(t_class));
+    partition.size = 0;
+    partition.capacity = graph->size;
+    // Initialize tarjan vertices array
+    t_tarjan_array *tarjan_array = init_tarjan_vertices(graph);
+    // Initialize stack
+    t_stack *stack = create_stack(graph->size);
+    // Initialize num counter
+    int num = 0;
+    // Perform DFS for all unvisited vertices
+    for (int i = 0; i < graph->size; i++) {
+        if (tarjan_array->vertices[i].number == -1) {
+            parcours(i, graph, tarjan_array, stack, &num, &partition);
+        }
+    }
+    return partition;
 }
 
 int** Hasse(a_list *graph, t_partition *partition) {
@@ -380,26 +414,6 @@ int** Hasse(a_list *graph, t_partition *partition) {
     return class_links;
 }
 
-t_partition compute_partition(a_list *graph) {
-    // Initialize partition
-    t_partition partition;
-    partition.classes = malloc(graph->size * sizeof(t_class));
-    partition.size = 0;
-    partition.capacity = graph->size;
-    // Initialize tarjan vertices array
-    t_tarjan_array *tarjan_array = init_tarjan_vertices(graph);
-    // Initialize stack
-    t_stack *stack = create_stack(graph->size);
-    // Initialize num counter
-    int num = 0;
-    // Perform DFS for all unvisited vertices
-    for (int i = 0; i < graph->size; i++) {
-        if (tarjan_array->vertices[i].number == -1) {
-            parcours(i, graph, tarjan_array, stack, &num, &partition);
-        }
-    }
-    return partition;
-}
 
 void analyze_graph_characteristics(t_partition *partition, int **class_links, int num_classes) {
     int *has_outgoing = calloc(num_classes, sizeof(int));
