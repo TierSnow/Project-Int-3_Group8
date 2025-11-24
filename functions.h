@@ -96,7 +96,7 @@ int pop(t_stack *);
 
 t_stack* create_stack(int);
 
-void parcours(int , a_list *, t_tarjan_array *, t_stack *, int *, t_partition *);
+void parcours(int, a_list *, t_tarjan_array *, t_stack *, int *, t_partition *);
 
 void tarjan(a_list *);
 
